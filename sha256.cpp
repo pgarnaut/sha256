@@ -13,8 +13,7 @@
 #include "sha256.h"
 
 // (first 32 bits of the fractional parts of the cube roots of the first 64 primes 2..311):
-const uint32 K[64] = 
-{  
+const uint32 K[64] = {  
 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -42,8 +41,7 @@ const uint32 K[64] =
 //
 #define XOR ^
 
-void Sha256Digest::reset()
-{
+void Sha256Digest::reset() {
     m_total[0] = 0;
     m_total[1] = 0;
     // initial values from the SHA-256 spec
@@ -62,8 +60,7 @@ void Sha256Digest::reset()
 
 // process 64 byte chunk
 // translated from pseudocode on wikipedia
-void Sha256Digest::process()
-{
+void Sha256Digest::process() {
     // these follow the naming conventions in the psuedocode
     uint32 w[64];
     uint32 a, b, c, d, e, f, g, h;
@@ -96,8 +93,7 @@ void Sha256Digest::process()
     g = m_state[6];
     h = m_state[7];
 
-    for(int i=16; i<64; i++)
-    {
+    for(int i=16; i<64; i++) {
         s0 = RROT(w[i-15], 7) XOR RROT(w[i-15], 18) XOR RSHIFT(w[i-15], 3);
         s1 = RROT(w[i-2], 17) XOR RROT(w[i-2], 19) XOR RSHIFT(w[i-2], 10);
         w[i] = w[i-16] + s0 + w[i-7] + s1;
@@ -105,8 +101,7 @@ void Sha256Digest::process()
 
     // main loop
     // TODO: unroll?  
-    for(int j=0; j<64; j++)
-    {
+    for(int j=0; j<64; j++) {
         s0 = RROT(a, 2) XOR RROT(a, 13) XOR RROT(a, 22);
         maj = (a & b) XOR (a & c) ^ (b & c);
         t2 = s0 + maj;
@@ -137,8 +132,7 @@ void Sha256Digest::process()
 
 // big endian
 // called only once in finalise() - no need to inline it
-static void packUint64(uint8 *buf, uint64 val)
-{
+static void packUint64(uint8 *buf, uint64 val) {
     buf[7] = (uint8)val;
     buf[6] = (uint8)(val >> 8);
     buf[5] = (uint8)(val >> 16);
@@ -151,22 +145,19 @@ static void packUint64(uint8 *buf, uint64 val)
 
 // this deviates slightly from the wiki pseudocode - because we dont want to pad more than we have to.
 // consider calling update on two separate 32byte inputs ...
-void Sha256Digest::update(uint8 *input, uint32 length )
-{
+void Sha256Digest::update(uint8 *input, uint32 length) {
     uint32 available = 64 - m_bufferFilled;
     if(length <= 0)
         return;
     
     m_msgLength += length;
     
-    if(length < available)
-    {
+    if(length < available) {
         memcpy(&m_buffer[m_bufferFilled], input, length);
         m_bufferFilled += length;
         return;
     }
-    if(length == available)
-    {
+    if(length == available) {
         memcpy(&m_buffer[m_bufferFilled], input, length);
         m_bufferFilled = 0;
         process();
@@ -181,8 +172,7 @@ void Sha256Digest::update(uint8 *input, uint32 length )
     input += available;
     
     // do 64 bit chunks
-    while(length >= 64)
-    {
+    while(length >= 64) {
         memcpy(m_buffer, input, 64);
         process();
         length -= 64;
@@ -191,31 +181,26 @@ void Sha256Digest::update(uint8 *input, uint32 length )
     m_bufferFilled = 0;
 
     // do any left overs
-    if(length > 0)
-    {
+    if(length > 0) {
         memcpy(m_buffer, input, length);
         m_bufferFilled = length;
     }  
 }
-void Sha256Digest::padAndFinalize()
-{
-    if(m_bufferFilled == 0)
-    {
+void Sha256Digest::padAndFinalize() {
+    if(m_bufferFilled == 0) {
         // need to pad out a whole new 64byte chunk and process it
         m_buffer[m_bufferFilled] = 1 << 7;
         memset(&m_buffer[m_bufferFilled + 1], 0, 55);
         packUint64(&m_buffer[56], m_msgLength * 8);
     }
-    else if(m_bufferFilled < 56)
-    {
+    else if(m_bufferFilled < 56) {
         // need to pad out somewhere between 1 and 55 bytes (including msgLen string) ...
         sint32 paddingSize = 56 - m_bufferFilled;
         m_buffer[m_bufferFilled] = 1 << 7;
         memset(&m_buffer[m_bufferFilled + 1], 0, paddingSize - 1);
         packUint64(&m_buffer[m_bufferFilled + paddingSize], m_msgLength * 8);
     }
-    else if(m_bufferFilled == 56)
-    {
+    else if(m_bufferFilled == 56) {
         // pad with 80 00 00 00 00 00 etc. then do another run with buffer set to 00 00 00 ... 00 <input size>
         m_buffer[m_bufferFilled] = 1 << 7;
         memset(&m_buffer[m_bufferFilled + 1], 0, 7);
@@ -224,8 +209,7 @@ void Sha256Digest::padAndFinalize()
         memset(m_buffer, 0, 56);
         packUint64(&m_buffer[56], m_msgLength * 8);
     }
-    else
-    {
+    else {
         // 56 < m_bufferFilled < 64
         m_buffer[m_bufferFilled] = 1 << 7;
         memset(&m_buffer[m_bufferFilled + 1], 0, 64 - m_bufferFilled - 1);
@@ -238,21 +222,19 @@ void Sha256Digest::padAndFinalize()
 
 }
 // big endian
-void packUint32(uint8 *buf, uint64 val)
-{
+void packUint32(uint8 *buf, uint64 val) {
     buf[3] = (uint8)val;
     buf[2] = (uint8)(val >> 8);
     buf[1] = (uint8)(val >> 16);
     buf[0] = (uint8)(val >> 24);
 }
-void Sha256Digest::finalise()
-{
+
+void Sha256Digest::finalise() {
     padAndFinalize();
 }
-void Sha256Digest::getHash(uint8 digest[32])
-{
-    for(uint32 i=0; i<8; i++)
-    {
+
+void Sha256Digest::getHash(uint8 digest[32]) {
+    for(uint32 i=0; i<8; i++) {
         packUint32(&digest[i * 4], m_state[i]);
     }
 }

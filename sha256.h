@@ -9,18 +9,12 @@
 //
 #define SHA256_LENGTH 32 // in bytes
 
-// typedef unsigned long long VtUint64;
-// typedef unsigned long uint32;
-// typedef long VtSint32;
-// typedef unsigned char uint8;
-
 #include "types.h"
 
 class Sha256Digest
 {
 public:
-    Sha256Digest()
-    {
+    Sha256Digest() {
         reset();
     }
     void reset();
